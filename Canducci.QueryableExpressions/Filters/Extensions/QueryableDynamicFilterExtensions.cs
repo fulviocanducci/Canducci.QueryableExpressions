@@ -47,7 +47,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                 {
                     if (filter.Value != null)
                     {
-                        constant = CreateParameterExpression(filter.Value, property.PropertyType);
+                        constant = ParameterExpressionBuilder.CreateParameterExpression(filter.Value, property.PropertyType);
                     }
                     else
                     {
@@ -116,7 +116,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 if (value != null)
                 {
-                    constant = CreateParameterExpression(value, property.PropertyType);
+                    constant = ParameterExpressionBuilder.CreateParameterExpression(value, property.PropertyType);
                 }
                 else
                 {
@@ -151,7 +151,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             if (underlyingType != null && op != FilterOperator.IsNull && op != FilterOperator.IsNotNull)
             {
                 member = Expression.Property(member, "Value");
-                if (constant != null)
+                if (constant != null && constant.Type != underlyingType)
                 {
                     constant = Expression.Convert(constant, underlyingType);
                 }
@@ -240,60 +240,6 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                     throw new NotSupportedException($"Operator {op} is not supported.");
             }
             return comparison;
-        }
-
-        private static Expression CreateParameterExpression(object value, Type targetType)
-        {
-            if (value == null)
-            {
-                return Expression.Constant(null, targetType);
-            }
-            Type holderValueType = GetUnderlyingClrType(targetType);
-            Type genericHolderType = typeof(ClosureHolder<>).MakeGenericType(holderValueType);
-            object holderInstance = Activator.CreateInstance(genericHolderType);
-            FieldInfo valueField = genericHolderType.GetField("Value", BindingFlags.Instance | BindingFlags.Public);
-            object converted = ConvertToTarget(value, holderValueType);
-            valueField.SetValue(holderInstance, converted);
-            Expression constHolder = Expression.Constant(holderInstance, genericHolderType);
-            Expression valueFieldExpr = Expression.Field(constHolder, valueField);
-            if (valueFieldExpr.Type != targetType)
-            {
-                return Expression.Convert(valueFieldExpr, targetType);
-            }
-
-            return valueFieldExpr;
-        }
-
-        private static Type GetUnderlyingClrType(Type targetType)
-        {
-            return Nullable.GetUnderlyingType(targetType) ?? targetType;
-        }
-
-        private static object ConvertToTarget(object value, Type targetClrType)
-        {
-            if (value == null)
-            {
-                return null;
-            }
-            Type nonNullable = Nullable.GetUnderlyingType(targetClrType) ?? targetClrType;
-            if (nonNullable.IsInstanceOfType(value))
-            {
-                return value;
-            }
-            if (nonNullable.IsEnum)
-            {
-                if (value is string s)
-                {
-                    return Enum.Parse(nonNullable, s);
-                }
-                return Enum.ToObject(nonNullable, value);
-            }
-            return Convert.ChangeType(value, nonNullable);
-        }
-
-        private sealed class ClosureHolder<T>
-        {
-            public T Value;
         }
     }
 }
