@@ -1,9 +1,11 @@
-﻿using System.Collections.Generic;
-namespace Canducci.QueryableExpressions.Filters.Extensions
+﻿using Canducci.QueryableExpressions.Filters.Extensions.Models;
+using Canducci.QueryableExpressions.Filters.Extensions.Operators;
+using System.Collections.Generic;
+namespace Canducci.QueryableExpressions.Filters.Extensions.Builders
 {
-    public class DynamicFilterBuilder
+    public sealed class DynamicFilterBuilder
     {
-        protected List<DynamicFilterItem> Filters { get; private set; }
+        internal List<DynamicFilterItem> Filters { get; set; }
 
         public DynamicFilterBuilder()
         {
@@ -21,9 +23,9 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return Add(DynamicFilterItem.Create(propertyName, value, op));
         }
 
-        public DynamicFilterBuilder AddEquals<T>(string propertyName, T value)
+        public DynamicFilterBuilder AddEqual<T>(string propertyName, T value)
         {
-            return Add(DynamicFilterItem.CreateEquals(propertyName, value));
+            return Add(DynamicFilterItem.CreateEqual(propertyName, value));
         }
 
         public DynamicFilterBuilder AddContains<T>(string propertyName, T value)

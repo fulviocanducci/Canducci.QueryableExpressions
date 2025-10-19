@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Canducci.QueryableExpressions.Filters.Extensions.Internals;
+using Canducci.QueryableExpressions.Filters.Extensions.Operators;
+using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -6,7 +8,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     public static class QueryableSearchExtensions
     {
-        public static IQueryable<T> ApplySearch<T>(this IQueryable<T> query, string search, SearchComparisonMode mode = SearchComparisonMode.Contains, params Expression<Func<T, string>>[] properties)
+        public static IQueryable<T> ApplySearch<T>(this IQueryable<T> query, string search, SearchOperator mode = SearchOperator.Contains, params Expression<Func<T, string>>[] properties)
         {
             if (string.IsNullOrWhiteSpace(search) || properties == null || properties.Length == 0)
             {
@@ -17,8 +19,8 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
             Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
             foreach (var property in properties)
-            {            
-                Expression member = ReplaceParameter(property.Body, property.Parameters[0], parameter);                
+            {
+                Expression member = ReplaceParameter(property.Body, property.Parameters[0], parameter);
                 BinaryExpression notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
                 Expression comparison = GetExpressionComparison(mode, member, searchConstant);
                 BinaryExpression andAlso = Expression.AndAlso(notNull, comparison);
@@ -32,7 +34,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.Where(lambda);
         }
 
-        public static IQueryable<T> ApplySearch<T>(this IQueryable<T> query, string search, SearchComparisonMode mode = SearchComparisonMode.Contains, params string[] propertyNames)
+        public static IQueryable<T> ApplySearch<T>(this IQueryable<T> query, string search, SearchOperator mode = SearchOperator.Contains, params string[] propertyNames)
         {
             if (string.IsNullOrWhiteSpace(search) || propertyNames == null || propertyNames.Length == 0)
             {
@@ -40,7 +42,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             }
             search = search.Trim();
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-            Expression combined = null;            
+            Expression combined = null;
             Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
             foreach (var propertyName in propertyNames)
             {
@@ -65,53 +67,53 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
 
         public static IQueryable<T> ApplySearchContains<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
         {
-            return ApplySearch(query, search, SearchComparisonMode.Contains, properties);
+            return ApplySearch(query, search, SearchOperator.Contains, properties);
         }
 
         public static IQueryable<T> ApplySearchStartsWith<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
         {
-            return ApplySearch(query, search, SearchComparisonMode.StartsWith, properties);
+            return ApplySearch(query, search, SearchOperator.StartsWith, properties);
         }
 
         public static IQueryable<T> ApplySearchEndsWith<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
         {
-            return ApplySearch(query, search, SearchComparisonMode.EndsWith, properties);
+            return ApplySearch(query, search, SearchOperator.EndsWith, properties);
         }
 
         public static IQueryable<T> ApplySearchExactly<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
         {
-            return ApplySearch(query, search, SearchComparisonMode.Exactly, properties);
+            return ApplySearch(query, search, SearchOperator.Exactly, properties);
         }
 
         public static IQueryable<T> ApplySearchContains<T>(this IQueryable<T> query, string search, params string[] propertyNames)
         {
-            return ApplySearch(query, search, SearchComparisonMode.Contains, propertyNames);
+            return ApplySearch(query, search, SearchOperator.Contains, propertyNames);
         }
 
         public static IQueryable<T> ApplySearchStartsWith<T>(this IQueryable<T> query, string search, params string[] propertyNames)
         {
-            return ApplySearch(query, search, SearchComparisonMode.StartsWith, propertyNames);
+            return ApplySearch(query, search, SearchOperator.StartsWith, propertyNames);
         }
 
         public static IQueryable<T> ApplySearchEndsWith<T>(this IQueryable<T> query, string search, params string[] propertyNames)
         {
-            return ApplySearch(query, search, SearchComparisonMode.EndsWith, propertyNames);
+            return ApplySearch(query, search, SearchOperator.EndsWith, propertyNames);
         }
 
         public static IQueryable<T> ApplySearchExactly<T>(this IQueryable<T> query, string search, params string[] propertyNames)
         {
-            return ApplySearch(query, search, SearchComparisonMode.Exactly, propertyNames);
+            return ApplySearch(query, search, SearchOperator.Exactly, propertyNames);
         }
 
-        private static Expression GetExpressionComparison(SearchComparisonMode mode, Expression member, Expression searchConstant)
+        private static Expression GetExpressionComparison(SearchOperator mode, Expression member, Expression searchConstant)
         {
             switch (mode)
             {
-                case SearchComparisonMode.StartsWith:
+                case SearchOperator.StartsWith:
                     return Expression.Call(member, typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) }), searchConstant);
-                case SearchComparisonMode.EndsWith:
+                case SearchOperator.EndsWith:
                     return Expression.Call(member, typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) }), searchConstant);
-                case SearchComparisonMode.Exactly:
+                case SearchOperator.Exactly:
                     return Expression.Equal(member, searchConstant);
                 default:
                     return Expression.Call(member, typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) }), searchConstant);
@@ -123,6 +125,6 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return ParameterReplaceVisitor
                 .Create(oldParam, newParam)
                 .Visit(expression);
-        }        
+        }
     }
 }

@@ -1,19 +1,21 @@
-﻿namespace Canducci.QueryableExpressions.Filters.Extensions
+﻿using Canducci.QueryableExpressions.Filters.Extensions.Operators;
+
+namespace Canducci.QueryableExpressions.Filters.Extensions.Models
 {
-    public class DynamicFilterItem
+    public sealed class DynamicFilterItem
     {
         public string PropertyName { get; private set; }
         public object Value { get; private set; }
         public FilterOperator Operator { get; private set; }
 
-        public DynamicFilterItem(string propertyName, object value, FilterOperator op = FilterOperator.Equals)
+        public DynamicFilterItem(string propertyName, object value, FilterOperator op = FilterOperator.Equal)
         {
             PropertyName = propertyName;
             Value = value;
             Operator = op;
         }
 
-        public static DynamicFilterItem Create<T>(string propertyName, T value, FilterOperator op = FilterOperator.Equals)
+        public static DynamicFilterItem Create<T>(string propertyName, T value, FilterOperator op = FilterOperator.Equal)
         {
             return new DynamicFilterItem(propertyName, value, op);
         }
@@ -33,9 +35,9 @@
             return new DynamicFilterItem(propertyName, value, FilterOperator.EndsWith);
         }
 
-        public static DynamicFilterItem CreateEquals<T>(string propertyName, T value)
+        public static DynamicFilterItem CreateEqual<T>(string propertyName, T value)
         {
-            return new DynamicFilterItem(propertyName, value, FilterOperator.Equals);
+            return new DynamicFilterItem(propertyName, value, FilterOperator.Equal);
         }
 
         public static DynamicFilterItem CreateGreaterThan<T>(string propertyName, T value)

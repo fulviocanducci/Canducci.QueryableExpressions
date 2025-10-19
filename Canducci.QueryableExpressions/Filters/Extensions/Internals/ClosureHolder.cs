@@ -1,4 +1,4 @@
-﻿namespace Canducci.QueryableExpressions.Filters.Extensions
+﻿namespace Canducci.QueryableExpressions.Filters.Extensions.Internals
 {
     internal sealed class ClosureHolder<T>
     {

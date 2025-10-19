@@ -1,11 +1,11 @@
-﻿namespace Canducci.QueryableExpressions.Filters.Extensions
+﻿namespace Canducci.QueryableExpressions.Filters.Extensions.Operators
 {
     public enum FilterOperator
     {
         Contains,
         StartsWith,
         EndsWith,
-        Equals,
+        Equal,
         GreaterThan,
         GreaterThanOrEqual,
         LessThan,

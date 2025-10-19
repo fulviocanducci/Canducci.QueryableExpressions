@@ -1,4 +1,5 @@
 ﻿using Canducci.QueryableExpressions.Filters.Extensions;
+using Canducci.QueryableExpressions.Filters.Extensions.Builders;
 using CslAppTest.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +16,7 @@ dbContext db = new(optionsBuilder.Options);
 //}
 
 var items = new DynamicFilterBuilder()
-        .AddEquals("Code", 1)
+        .AddEqual("Code", 1)
         .AddContains("Name", "M")        
         .Build();
 
@@ -24,16 +25,17 @@ string c = "M";
 var res = db.Users
     .AsNoTracking()
     //.Where(a => a.Name.Contains(c) || (a.Gender != null && a.Gender.Contains(c)))
-    .ApplySearchContains("M", x => x.Name, x => x.Gender)    
+    //.ApplySearchContains("M", x => x.Name, x => x.Gender)    
     //.Where(c => c.Code == code)
     //.DynamicFilter("Name", "LUCAS", FilterOperator.StartsWith)
     //.DynamicFilter("CreatedAt", DateTime.Parse("27/11/2021"), FilterOperator.Equals)
-    //.DynamicFilters(items)
+    .DynamicFilters(items)
     //.DynamicFilter("Code", code)
     //.DynamicFilterNotNull("Code")
-    .ToList();
-//Console.WriteLine(res);
-foreach (var item in res)
-{
-    Console.WriteLine($"{item.Id} - {item.Name} - {item.Gender}");
-}
+    .ToQueryString();
+    //.ToList();
+Console.WriteLine(res);
+//foreach (var item in res)
+//{
+//    Console.WriteLine($"{item.Id} - {item.Name} - {item.Gender}");
+//}

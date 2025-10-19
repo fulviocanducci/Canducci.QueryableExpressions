@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq.Expressions;
 using System.Reflection;
-namespace Canducci.QueryableExpressions.Filters.Extensions
+namespace Canducci.QueryableExpressions.Filters.Extensions.Internals
 {
     internal static class ParameterExpressionBuilder
     {

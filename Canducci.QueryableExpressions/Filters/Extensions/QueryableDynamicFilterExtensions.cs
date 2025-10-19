@@ -1,9 +1,12 @@
-﻿using System;
+﻿using Canducci.QueryableExpressions.Filters.Extensions.Internals;
+using Canducci.QueryableExpressions.Filters.Extensions.Models;
+using Canducci.QueryableExpressions.Filters.Extensions.Operators;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.ComponentModel.DataAnnotations;
 namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     public static class QueryableDynamicFilterExtensions
@@ -82,7 +85,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.Where(lambda);
         }
 
-        public static IQueryable<T> DynamicFilter<T>(this IQueryable<T> query, string propertyName, object value, FilterOperator op = FilterOperator.Equals)
+        public static IQueryable<T> DynamicFilter<T>(this IQueryable<T> query, string propertyName, object value, FilterOperator op = FilterOperator.Equal)
         {
             if (string.IsNullOrWhiteSpace(propertyName))
             {
@@ -137,7 +140,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
         {
             return query.DynamicFilter(propertyName, null, FilterOperator.IsNotNull);
         }
-                
+
         public static IQueryable<T> DynamicFilterContains<T>(this IQueryable<T> query, string propertyName, object value)
         {
             return query.DynamicFilter(propertyName, value, FilterOperator.Contains);
@@ -153,9 +156,9 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.DynamicFilter(propertyName, value, FilterOperator.EndsWith);
         }
 
-        public static IQueryable<T> DynamicFilterEquals<T>(this IQueryable<T> query, string propertyName, object value)
+        public static IQueryable<T> DynamicFilterEqual<T>(this IQueryable<T> query, string propertyName, object value)
         {
-            return query.DynamicFilter(propertyName, value, FilterOperator.Equals);
+            return query.DynamicFilter(propertyName, value, FilterOperator.Equal);
         }
 
         public static IQueryable<T> DynamicFilterGreaterThan<T>(this IQueryable<T> query, string propertyName, object value)
@@ -203,9 +206,9 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.EndsWith);
         }
 
-        public static IQueryable<T> DynamicFilterEquals<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        public static IQueryable<T> DynamicFilterEqual<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
         {
-            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.Equals);
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.Equal);
         }
 
         public static IQueryable<T> DynamicFilterGreaterThan<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
@@ -290,7 +293,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                         comparison = Expression.Call(member, typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) }), constant);
                         break;
                     }
-                case FilterOperator.Equals:
+                case FilterOperator.Equal:
                     {
                         comparison = Expression.Equal(member, constant);
                         break;

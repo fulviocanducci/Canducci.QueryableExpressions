@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq.Expressions;
-
-namespace Canducci.QueryableExpressions.Filters.Extensions
+namespace Canducci.QueryableExpressions.Filters.Extensions.Internals
 {
     internal sealed class ParameterReplaceVisitor : ExpressionVisitor
     {
