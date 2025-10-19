@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+
 namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     public static class QueryableDynamicFilterExtensions
@@ -20,42 +21,24 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
 
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
             Expression combined = null;
-            foreach (var filter in filters)
+
+            foreach (DynamicFilterItem filter in filters)
             {
                 if (string.IsNullOrWhiteSpace(filter.PropertyName))
                 {
                     continue;
                 }
-                PropertyInfo property = typeof(T).GetProperty(filter.PropertyName);
+
+                PropertyInfo property = GetPropertyInfo<T>(filter.PropertyName);
                 if (property == null)
                 {
                     continue;
                 }
-                if (filter.Operator == FilterOperator.IsNull || filter.Operator == FilterOperator.IsNotNull)
-                {
-                    if (Nullable.GetUnderlyingType(property.PropertyType) == null && property.PropertyType.IsValueType)
-                    {
-                        throw new InvalidOperationException($"Operator {filter.Operator} cannot be used on non-nullable value property '{property.Name}'.");
-                    }
 
-                    if (property.IsDefined(typeof(RequiredAttribute), inherit: true))
-                    {
-                        throw new InvalidOperationException($"Operator {filter.Operator} cannot be used on property '{property.Name}' marked with [Required].");
-                    }
-                }
+                ValidateNullOperators(property, filter.Operator);
+
                 Expression member = Expression.Property(parameter, property);
-                Expression constant = null;
-                if (filter.Operator != FilterOperator.IsNull && filter.Operator != FilterOperator.IsNotNull)
-                {
-                    if (filter.Value != null)
-                    {
-                        constant = ParameterExpressionBuilder.CreateParameterExpression(filter.Value, property.PropertyType);
-                    }
-                    else
-                    {
-                        constant = Expression.Constant(null, member.Type);
-                    }
-                }
+                Expression constant = BuildConstantExpression(filter.Value, property.PropertyType, member);
 
                 Expression comparison = GetComparisonExpression(member, constant, filter.Operator, property.PropertyType);
 
@@ -92,39 +75,17 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                 return query;
             }
 
-            ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-            PropertyInfo property = typeof(T).GetProperty(propertyName);
+            PropertyInfo property = GetPropertyInfo<T>(propertyName);
             if (property == null)
             {
                 return query;
             }
-            if (op == FilterOperator.IsNull || op == FilterOperator.IsNotNull)
-            {
-                if (Nullable.GetUnderlyingType(property.PropertyType) == null && property.PropertyType.IsValueType)
-                {
-                    throw new InvalidOperationException($"Operator {op} cannot be used on non-nullable value property '{property.Name}'.");
-                }
 
-                if (property.IsDefined(typeof(RequiredAttribute), inherit: true))
-                {
-                    throw new InvalidOperationException($"Operator {op} cannot be used on property '{property.Name}' marked with [Required].");
-                }
-            }
+            ValidateNullOperators(property, op);
 
+            ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
             Expression member = Expression.Property(parameter, property);
-            Expression constant = null;
-
-            if (op != FilterOperator.IsNull && op != FilterOperator.IsNotNull)
-            {
-                if (value != null)
-                {
-                    constant = ParameterExpressionBuilder.CreateParameterExpression(value, property.PropertyType);
-                }
-                else
-                {
-                    constant = Expression.Constant(null, member.Type);
-                }
-            }
+            Expression constant = BuildConstantExpression(value, property.PropertyType, member);
 
             Expression comparison = GetComparisonExpression(member, constant, op, property.PropertyType);
             Expression<Func<T, bool>> lambda = Expression.Lambda<Func<T, bool>>(comparison, parameter);
@@ -241,7 +202,45 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.DynamicFilter(GetPropertyName(propertySelector), null, FilterOperator.IsNotNull);
         }
 
-        private static bool IsNotAssignableFrom(Type type)
+        private static PropertyInfo GetPropertyInfo<T>(string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return null;
+            }
+
+            return typeof(T).GetProperty(propertyName);
+        }
+
+        private static void ValidateNullOperators(PropertyInfo property, FilterOperator op)
+        {
+            if (op != FilterOperator.IsNull && op != FilterOperator.IsNotNull)
+            {
+                return;
+            }
+
+            if (Nullable.GetUnderlyingType(property.PropertyType) == null && property.PropertyType.IsValueType)
+            {
+                throw new InvalidOperationException(string.Format("Operator {0} cannot be used on non-nullable value property '{1}'.", op, property.Name));
+            }
+
+            if (property.IsDefined(typeof(RequiredAttribute), inherit: true))
+            {
+                throw new InvalidOperationException(string.Format("Operator {0} cannot be used on property '{1}' marked with [Required].", op, property.Name));
+            }
+        }
+
+        private static Expression BuildConstantExpression(object value, Type propertyType, Expression member)
+        {
+            if (value == null)
+            {
+                return Expression.Constant(null, member.Type);
+            }
+
+            return ParameterExpressionBuilder.CreateParameterExpression(value, propertyType);
+        }
+
+        private static bool IsNotStringType(Type type)
         {
             return typeof(string).IsAssignableFrom(type) == false;
         }
@@ -250,6 +249,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
         {
             Expression originalMember = member;
             Type underlyingType = Nullable.GetUnderlyingType(propertyType);
+
             if (underlyingType != null && op != FilterOperator.IsNull && op != FilterOperator.IsNotNull)
             {
                 member = Expression.Property(member, "Value");
@@ -264,60 +264,75 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             }
 
             Expression comparison = null;
+
             switch (op)
             {
                 case FilterOperator.Contains:
                     {
-                        if (IsNotAssignableFrom(underlyingType))
+                        if (IsNotStringType(underlyingType))
                         {
                             throw new InvalidOperationException("Contains operator can only be used on string properties.");
                         }
-                        comparison = Expression.Call(member, typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) }), constant);
+
+                        MethodInfo containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) });
+                        comparison = Expression.Call(member, containsMethod, constant);
                         break;
                     }
+
                 case FilterOperator.StartsWith:
                     {
-                        if (IsNotAssignableFrom(underlyingType))
+                        if (IsNotStringType(underlyingType))
                         {
                             throw new InvalidOperationException("StartsWith operator can only be used on string properties.");
                         }
-                        comparison = Expression.Call(member, typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) }), constant);
+
+                        MethodInfo startsWithMethod = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) });
+                        comparison = Expression.Call(member, startsWithMethod, constant);
                         break;
                     }
+
                 case FilterOperator.EndsWith:
                     {
-                        if (IsNotAssignableFrom(underlyingType))
+                        if (IsNotStringType(underlyingType))
                         {
                             throw new InvalidOperationException("EndsWith operator can only be used on string properties.");
                         }
-                        comparison = Expression.Call(member, typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) }), constant);
+
+                        MethodInfo endsWithMethod = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) });
+                        comparison = Expression.Call(member, endsWithMethod, constant);
                         break;
                     }
+
                 case FilterOperator.Equal:
                     {
                         comparison = Expression.Equal(member, constant);
                         break;
                     }
+
                 case FilterOperator.GreaterThan:
                     {
                         comparison = Expression.GreaterThan(member, constant);
                         break;
                     }
+
                 case FilterOperator.GreaterThanOrEqual:
                     {
                         comparison = Expression.GreaterThanOrEqual(member, constant);
                         break;
                     }
+
                 case FilterOperator.LessThan:
                     {
                         comparison = Expression.LessThan(member, constant);
                         break;
                     }
+
                 case FilterOperator.LessThanOrEqual:
                     {
                         comparison = Expression.LessThanOrEqual(member, constant);
                         break;
                     }
+
                 case FilterOperator.IsNull:
                     {
                         if (Nullable.GetUnderlyingType(propertyType) == null && propertyType.IsValueType)
@@ -328,6 +343,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                         comparison = Expression.Equal(originalMember, Expression.Constant(null, propertyType));
                         break;
                     }
+
                 case FilterOperator.IsNotNull:
                     {
                         if (Nullable.GetUnderlyingType(propertyType) == null && propertyType.IsValueType)
@@ -338,24 +354,41 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                         comparison = Expression.NotEqual(originalMember, Expression.Constant(null, propertyType));
                         break;
                     }
+
                 default:
-                    throw new NotSupportedException($"Operator {op} is not supported.");
+                    {
+                        throw new NotSupportedException(string.Format("Operator {0} is not supported.", op));
+                    }
             }
+
             return comparison;
         }
 
         private static string GetPropertyName<T>(Expression<Func<T, object>> selector)
         {
-            if (selector == null) throw new ArgumentNullException(nameof(selector));
-            Expression body = selector.Body;
-            if (body is UnaryExpression unary && unary.Operand is MemberExpression memberUnary)
+            if (selector == null)
             {
-                return memberUnary.Member.Name;
+                throw new ArgumentNullException(nameof(selector));
             }
-            if (body is MemberExpression member)
+
+            Expression body = selector.Body;
+
+            if (body is UnaryExpression)
             {
+                UnaryExpression unary = (UnaryExpression)body;
+                if (unary.Operand is MemberExpression)
+                {
+                    MemberExpression memberUnary = (MemberExpression)unary.Operand;
+                    return memberUnary.Member.Name;
+                }
+            }
+
+            if (body is MemberExpression)
+            {
+                MemberExpression member = (MemberExpression)body;
                 return member.Member.Name;
             }
+
             throw new ArgumentException("Expression must be a simple member access", nameof(selector));
         }
     }

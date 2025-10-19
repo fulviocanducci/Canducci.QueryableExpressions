@@ -14,22 +14,57 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return query;
             }
-            search = search.Trim();
+
+            string trimmed = search.Trim();
             Expression combined = null;
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
-            foreach (var property in properties)
+            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(trimmed, typeof(string));
+
+            MethodInfo containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) });
+            MethodInfo startsWithMethod = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) });
+            MethodInfo endsWithMethod = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) });
+
+            foreach (Expression<Func<T, string>> property in properties)
             {
                 Expression member = ReplaceParameter(property.Body, property.Parameters[0], parameter);
                 BinaryExpression notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
-                Expression comparison = GetExpressionComparison(mode, member, searchConstant);
+                Expression comparison;
+
+                switch (mode)
+                {
+                    case SearchOperator.StartsWith:
+                        comparison = Expression.Call(member, startsWithMethod, searchConstant);
+                        break;
+
+                    case SearchOperator.EndsWith:
+                        comparison = Expression.Call(member, endsWithMethod, searchConstant);
+                        break;
+
+                    case SearchOperator.Exactly:
+                        comparison = Expression.Equal(member, searchConstant);
+                        break;
+
+                    default:
+                        comparison = Expression.Call(member, containsMethod, searchConstant);
+                        break;
+                }
+
                 BinaryExpression andAlso = Expression.AndAlso(notNull, comparison);
-                combined = combined == null ? andAlso : Expression.OrElse(combined, andAlso);
+                if (combined == null)
+                {
+                    combined = andAlso;
+                }
+                else
+                {
+                    combined = Expression.OrElse(combined, andAlso);
+                }
             }
+
             if (combined == null)
             {
                 return query;
             }
+
             Expression<Func<T, bool>> lambda = Expression.Lambda<Func<T, bool>>(combined, parameter);
             return query.Where(lambda);
         }
@@ -40,27 +75,63 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return query;
             }
-            search = search.Trim();
+
+            string trimmed = search.Trim();
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
             Expression combined = null;
-            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
-            foreach (var propertyName in propertyNames)
+            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(trimmed, typeof(string));
+
+            MethodInfo containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) });
+            MethodInfo startsWithMethod = typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) });
+            MethodInfo endsWithMethod = typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) });
+
+            foreach (string propertyName in propertyNames)
             {
                 PropertyInfo propertyInfo = typeof(T).GetProperty(propertyName);
                 if (propertyInfo == null || propertyInfo.PropertyType != typeof(string))
                 {
                     continue;
                 }
+
                 MemberExpression member = Expression.Property(parameter, propertyInfo);
                 BinaryExpression notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
-                Expression comparison = GetExpressionComparison(mode, member, searchConstant);
+                Expression comparison;
+
+                switch (mode)
+                {
+                    case SearchOperator.StartsWith:
+                        comparison = Expression.Call(member, startsWithMethod, searchConstant);
+                        break;
+
+                    case SearchOperator.EndsWith:
+                        comparison = Expression.Call(member, endsWithMethod, searchConstant);
+                        break;
+
+                    case SearchOperator.Exactly:
+                        comparison = Expression.Equal(member, searchConstant);
+                        break;
+
+                    default:
+                        comparison = Expression.Call(member, containsMethod, searchConstant);
+                        break;
+                }
+
                 BinaryExpression andAlso = Expression.AndAlso(notNull, comparison);
-                combined = combined == null ? andAlso : Expression.OrElse(combined, andAlso);
+                if (combined == null)
+                {
+                    combined = andAlso;
+                }
+                else
+                {
+                    combined = Expression.OrElse(combined, andAlso);
+                }
             }
+
             if (combined == null)
             {
                 return query;
             }
+
             Expression<Func<T, bool>> lambda = Expression.Lambda<Func<T, bool>>(combined, parameter);
             return query.Where(lambda);
         }
@@ -105,26 +176,32 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return ApplySearch(query, search, SearchOperator.Exactly, propertyNames);
         }
 
-        private static Expression GetExpressionComparison(SearchOperator mode, Expression member, Expression searchConstant)
-        {
-            switch (mode)
-            {
-                case SearchOperator.StartsWith:
-                    return Expression.Call(member, typeof(string).GetMethod(nameof(string.StartsWith), new[] { typeof(string) }), searchConstant);
-                case SearchOperator.EndsWith:
-                    return Expression.Call(member, typeof(string).GetMethod(nameof(string.EndsWith), new[] { typeof(string) }), searchConstant);
-                case SearchOperator.Exactly:
-                    return Expression.Equal(member, searchConstant);
-                default:
-                    return Expression.Call(member, typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) }), searchConstant);
-            }
-        }
-
         private static Expression ReplaceParameter(Expression expression, ParameterExpression oldParam, ParameterExpression newParam)
         {
-            return ParameterReplaceVisitor
-                .Create(oldParam, newParam)
-                .Visit(expression);
+            ParameterReplaceVisitor visitor = new ParameterReplaceVisitor(oldParam, newParam);
+            return visitor.Visit(expression);
+        }
+
+        private sealed class ParameterReplaceVisitor : ExpressionVisitor
+        {
+            private readonly ParameterExpression _old;
+            private readonly ParameterExpression _new;
+
+            public ParameterReplaceVisitor(ParameterExpression oldParam, ParameterExpression newParam)
+            {
+                _old = oldParam ?? throw new ArgumentNullException(nameof(oldParam));
+                _new = newParam ?? throw new ArgumentNullException(nameof(newParam));
+            }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                if (node == _old)
+                {
+                    return _new;
+                }
+
+                return base.VisitParameter(node);
+            }
         }
     }
 }
