@@ -1,7 +1,6 @@
 ﻿using Canducci.QueryableExpressions.Filters.Extensions.Internals;
 using Canducci.QueryableExpressions.Orders.Models;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -10,13 +9,18 @@ namespace Canducci.QueryableExpressions.Orders.Extensions
 {
     public static class QueryableOrderExtensions
     {
+        internal const string OrderByDescending = "OrderByDescending";
+        internal const string OrderBy = "OrderBy";
+        internal const string ThenByDescending = "ThenByDescending";
+        internal const string ThenBy = "ThenBy";
+
         public static IQueryable<T> DynamicOrderBy<T>(this IQueryable<T> source, IEnumerable<Order> orders)
         {
             if (orders == null)
             {
                 return source;
             }
-            return DynamicOrderBy<T>(source, orders.ToArray());
+            return DynamicOrderBy(source, orders.ToArray());
         }
 
         public static IQueryable<T> DynamicOrderBy<T>(this IQueryable<T> source, params Order[] orders)
@@ -45,7 +49,7 @@ namespace Canducci.QueryableExpressions.Orders.Extensions
                 Expression propertyAccess = Expression.Property(parameter, property);
                 LambdaExpression keySelector = Expression.Lambda(propertyAccess, parameter);
                 string methodName;
-                methodName = i == 0 ? (order.Descending ? "OrderByDescending" : "OrderBy") : (order.Descending ? "ThenByDescending" : "ThenBy");
+                methodName = i == 0 ? (order.Descending ? OrderByDescending : OrderBy) : (order.Descending ? ThenByDescending : ThenBy);
                 MethodInfo genericMethod = GetQueryableMethod(methodName, typeof(T), property.PropertyType);
                 MethodInfo constructed = genericMethod.MakeGenericMethod(typeof(T), property.PropertyType);
                 Expression call = Expression.Call(null, constructed, new Expression[] { query.Expression, Expression.Quote(keySelector) });
