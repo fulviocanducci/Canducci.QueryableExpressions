@@ -190,6 +190,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.DynamicFilter(GetPropertyName(propertySelector), null, FilterOperator.IsNotNull);
         }
 
+        #region private_methods
         private static PropertyInfo GetPropertyInfo<T>(string propertyName)
         {
             if (string.IsNullOrWhiteSpace(propertyName))
@@ -363,5 +364,6 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             }
             throw new ArgumentException("Expression must be a simple member access", nameof(selector));
         }
+        #endregion
     }
 }
