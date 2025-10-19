@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq.Expressions;
 using System.Reflection;
-
 namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     internal static class ParameterExpressionBuilder
@@ -13,8 +12,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             Type holderValueType = GetUnderlyingClrType(targetType);
             Type genericHolderType = typeof(ClosureHolder<>).MakeGenericType(holderValueType);
             object holderInstance = Activator.CreateInstance(genericHolderType);
-
-            var valueField = genericHolderType.GetField("Value", BindingFlags.Instance | BindingFlags.Public);
+            FieldInfo valueField = genericHolderType.GetField("Value", BindingFlags.Instance | BindingFlags.Public);
             if (valueField != null)
             {
                 object converted = ConvertToTarget(value, holderValueType);
@@ -23,8 +21,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                 Expression valueExpr = Expression.Field(constHolder, valueField);
                 return valueExpr.Type != targetType ? Expression.Convert(valueExpr, targetType) : valueExpr;
             }
-
-            var valueProp = genericHolderType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
+            PropertyInfo valueProp = genericHolderType.GetProperty("Value", BindingFlags.Instance | BindingFlags.Public);
             if (valueProp != null)
             {
                 object converted = ConvertToTarget(value, holderValueType);
@@ -33,7 +30,6 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                 Expression valueExpr = Expression.Property(constHolder, valueProp);
                 return valueExpr.Type != targetType ? Expression.Convert(valueExpr, targetType) : valueExpr;
             }
-
             throw new InvalidOperationException("ClosureHolder<T> must expose a public field 'Value' or property 'Value'.");
         }
 
@@ -45,26 +41,17 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
         private static object ConvertToTarget(object value, Type targetClrType)
         {
             if (value == null) return null;
-
             Type nonNullable = Nullable.GetUnderlyingType(targetClrType) ?? targetClrType;
-
             if (nonNullable.IsInstanceOfType(value))
             {
                 return value;
             }
-
             if (nonNullable.IsEnum)
             {
                 if (value is string s) return Enum.Parse(nonNullable, s);
                 return Enum.ToObject(nonNullable, value);
             }
-
             return Convert.ChangeType(value, nonNullable);
-        }
-
-        private sealed class ClosureHolder<T>
-        {
-            public T Value { get; set; }
         }
     }
 }

@@ -20,9 +20,12 @@ var items = new DynamicFilterBuilder()
         .Build();
 
 //int? code = 1;
+string c = "M";
 var res = db.Users
     .AsNoTracking()
-    .ApplySearch("M", SearchBy.Contains, x => x.Name)
+    //.Where(a => a.Name.Contains(c) || (a.Gender != null && a.Gender.Contains(c)))
+    .ApplySearchContains("M", x => x.Name, x => x.Gender)
+    
     //.Where(c => c.Code == code)
     //.DynamicFilter("Name", "LUCAS", FilterOperator.StartsWith)
     //.DynamicFilter("CreatedAt", DateTime.Parse("27/11/2021"), FilterOperator.Equals)

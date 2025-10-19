@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-
 namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     public static class QueryableSearchExtensions
@@ -13,24 +12,22 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return query;
             }
-
             search = search.Trim();
             Expression combined = null;
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-
+            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
             foreach (var property in properties)
-            {
-                // Replace the lambda parameter with the query parameter to get a real member access
-                Expression member = ReplaceParameter(property.Body, property.Parameters[0], parameter);
-
-                // Null check and comparison using the shared parameter builder
+            {            
+                Expression member = ReplaceParameter(property.Body, property.Parameters[0], parameter);                
                 BinaryExpression notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
-                Expression comparison = GetExpressionComparison(mode, member, search);
+                Expression comparison = GetExpressionComparison(mode, member, searchConstant);
                 BinaryExpression andAlso = Expression.AndAlso(notNull, comparison);
                 combined = combined == null ? andAlso : Expression.OrElse(combined, andAlso);
             }
-
-            if (combined == null) return query;
+            if (combined == null)
+            {
+                return query;
+            }
             Expression<Func<T, bool>> lambda = Expression.Lambda<Func<T, bool>>(combined, parameter);
             return query.Where(lambda);
         }
@@ -41,33 +38,73 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return query;
             }
-
             search = search.Trim();
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-            Expression combined = null;
-
+            Expression combined = null;            
+            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
             foreach (var propertyName in propertyNames)
             {
                 PropertyInfo propertyInfo = typeof(T).GetProperty(propertyName);
-                if (propertyInfo == null || propertyInfo.PropertyType != typeof(string)) continue;
-
+                if (propertyInfo == null || propertyInfo.PropertyType != typeof(string))
+                {
+                    continue;
+                }
                 MemberExpression member = Expression.Property(parameter, propertyInfo);
                 BinaryExpression notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
-                Expression comparison = GetExpressionComparison(mode, member, search);
+                Expression comparison = GetExpressionComparison(mode, member, searchConstant);
                 BinaryExpression andAlso = Expression.AndAlso(notNull, comparison);
                 combined = combined == null ? andAlso : Expression.OrElse(combined, andAlso);
             }
-
-            if (combined == null) return query;
+            if (combined == null)
+            {
+                return query;
+            }
             Expression<Func<T, bool>> lambda = Expression.Lambda<Func<T, bool>>(combined, parameter);
             return query.Where(lambda);
         }
 
-        private static Expression GetExpressionComparison(SearchComparisonMode mode, Expression member, string search)
+        public static IQueryable<T> ApplySearchContains<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
         {
-            // Build a strongly-typed parameter expression for the search string so EF emits a DbParameter
-            Expression searchConstant = ParameterExpressionBuilder.CreateParameterExpression(search, typeof(string));
+            return ApplySearch(query, search, SearchComparisonMode.Contains, properties);
+        }
 
+        public static IQueryable<T> ApplySearchStartsWith<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.StartsWith, properties);
+        }
+
+        public static IQueryable<T> ApplySearchEndsWith<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.EndsWith, properties);
+        }
+
+        public static IQueryable<T> ApplySearchExactly<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.Exactly, properties);
+        }
+
+        public static IQueryable<T> ApplySearchContains<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.Contains, propertyNames);
+        }
+
+        public static IQueryable<T> ApplySearchStartsWith<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.StartsWith, propertyNames);
+        }
+
+        public static IQueryable<T> ApplySearchEndsWith<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.EndsWith, propertyNames);
+        }
+
+        public static IQueryable<T> ApplySearchExactly<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchComparisonMode.Exactly, propertyNames);
+        }
+
+        private static Expression GetExpressionComparison(SearchComparisonMode mode, Expression member, Expression searchConstant)
+        {
             switch (mode)
             {
                 case SearchComparisonMode.StartsWith:
@@ -81,27 +118,11 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             }
         }
 
-        // Replace occurrences of oldParam with newParam inside expression
         private static Expression ReplaceParameter(Expression expression, ParameterExpression oldParam, ParameterExpression newParam)
         {
-            return new ParameterReplaceVisitor(oldParam, newParam).Visit(expression);
-        }
-
-        private sealed class ParameterReplaceVisitor : ExpressionVisitor
-        {
-            private readonly ParameterExpression _old;
-            private readonly ParameterExpression _new;
-
-            public ParameterReplaceVisitor(ParameterExpression oldParam, ParameterExpression newParam)
-            {
-                _old = oldParam ?? throw new ArgumentNullException(nameof(oldParam));
-                _new = newParam ?? throw new ArgumentNullException(nameof(newParam));
-            }
-
-            protected override Expression VisitParameter(ParameterExpression node)
-            {
-                return node == _old ? _new : base.VisitParameter(node);
-            }
-        }
+            return ParameterReplaceVisitor
+                .Create(oldParam, newParam)
+                .Visit(expression);
+        }        
     }
 }
