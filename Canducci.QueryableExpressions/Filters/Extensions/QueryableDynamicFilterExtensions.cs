@@ -2,41 +2,46 @@
 using Canducci.QueryableExpressions.Filters.Extensions.Models;
 using Canducci.QueryableExpressions.Filters.Extensions.Operators;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+
 namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     public static class QueryableDynamicFilterExtensions
     {
-        private static readonly ConcurrentDictionary<string, PropertyInfo> s_propertyCache = new ConcurrentDictionary<string, PropertyInfo>();
-        private static readonly ConcurrentDictionary<string, MethodInfo> s_stringMethodCache = new ConcurrentDictionary<string, MethodInfo>();
         public static IQueryable<T> DynamicFilters<T>(this IQueryable<T> query, IEnumerable<DynamicFilterItem> filters, bool combineWithOr = false)
         {
             if (filters == null || !filters.Any())
             {
                 return query;
             }
+
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
             Expression combined = null;
+
             foreach (DynamicFilterItem filter in filters)
             {
                 if (string.IsNullOrWhiteSpace(filter.PropertyName))
                 {
                     continue;
                 }
+
                 PropertyInfo property = GetPropertyInfo<T>(filter.PropertyName);
                 if (property == null)
                 {
                     continue;
                 }
+
                 ValidateNullOperators(property, filter.Operator);
+
                 Expression member = Expression.Property(parameter, property);
                 Expression constant = BuildConstantExpression(filter.Value, property.PropertyType, member);
+
                 Expression comparison = GetComparisonExpression(member, constant, filter.Operator, property.PropertyType);
+
                 if (combined == null)
                 {
                     combined = comparison;
@@ -53,10 +58,12 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                     }
                 }
             }
+
             if (combined == null)
             {
                 return query;
             }
+
             return query.Where(Expression.Lambda<Func<T, bool>>(combined, parameter));
         }
 
@@ -66,15 +73,19 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return query;
             }
+
             PropertyInfo property = GetPropertyInfo<T>(propertyName);
             if (property == null)
             {
                 return query;
             }
+
             ValidateNullOperators(property, op);
+
             ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
             Expression member = Expression.Property(parameter, property);
             Expression constant = BuildConstantExpression(value, property.PropertyType, member);
+
             Expression comparison = GetComparisonExpression(member, constant, op, property.PropertyType);
             Expression<Func<T, bool>> lambda = Expression.Lambda<Func<T, bool>>(comparison, parameter);
             return query.Where(lambda);
@@ -193,16 +204,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
         #region private_methods
         private static PropertyInfo GetPropertyInfo<T>(string propertyName)
         {
-            if (string.IsNullOrWhiteSpace(propertyName))
-            {
-                return null;
-            }
-            string key = typeof(T).FullName + "|" + propertyName;
-            PropertyInfo property = s_propertyCache.GetOrAdd(key, (string unused) =>
-            {
-                return typeof(T).GetProperty(propertyName);
-            });
-            return property;
+            return ReflectionCache.GetPropertyInfo(typeof(T), propertyName);
         }
 
         private static void ValidateNullOperators(PropertyInfo property, FilterOperator op)
@@ -211,8 +213,9 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return;
             }
+
             NullableGetUnderlyingTypeOrInvalidOperationException(property.PropertyType, string.Format("Operator {0} cannot be used on non-nullable value property '{1}'.", op, property.Name));
-            PropertyIsDefinedOrInvalidOperationException(property, string.Format("Operator {0} cannot be used on property '{1}' marked with [Required].", op, property.Name));            
+            PropertyIsDefinedOrInvalidOperationException(property, string.Format("Operator {0} cannot be used on property '{1}' marked with [Required].", op, property.Name));
         }
 
         private static void PropertyIsDefinedOrInvalidOperationException(PropertyInfo property, string errorMessage)
@@ -229,6 +232,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 return Expression.Constant(null, member.Type);
             }
+
             return ParameterExpressionBuilder.CreateParameterExpression(value, propertyType);
         }
 
@@ -247,17 +251,14 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
 
         private static MethodInfo GetStringMethod(string name)
         {
-            MethodInfo method = s_stringMethodCache.GetOrAdd(name, (string methodName) =>
-            {
-                return typeof(string).GetMethod(methodName, new[] { typeof(string) });
-            });
-            return method;
+            return ReflectionCache.GetStringMethod(name);
         }
 
         private static Expression GetComparisonExpression(Expression member, Expression constant, FilterOperator op, Type propertyType)
         {
             Expression originalMember = member;
             Type underlyingType = Nullable.GetUnderlyingType(propertyType);
+
             if (underlyingType != null && op != FilterOperator.IsNull && op != FilterOperator.IsNotNull)
             {
                 member = Expression.Property(member, "Value");
@@ -270,7 +271,9 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 underlyingType = propertyType;
             }
+
             Expression comparison = null;
+
             switch (op)
             {
                 case FilterOperator.Contains:
@@ -280,6 +283,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                         comparison = Expression.Call(member, containsMethod, constant);
                         break;
                     }
+
                 case FilterOperator.StartsWith:
                     {
                         IsNotStringTypeOrInvalidOperationException(underlyingType, "StartsWith operator can only be used on string properties.");
@@ -287,6 +291,7 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                         comparison = Expression.Call(member, startsWithMethod, constant);
                         break;
                     }
+
                 case FilterOperator.EndsWith:
                     {
                         IsNotStringTypeOrInvalidOperationException(underlyingType, "EndsWith operator can only be used on string properties.");
@@ -294,48 +299,57 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                         comparison = Expression.Call(member, endsWithMethod, constant);
                         break;
                     }
+
                 case FilterOperator.Equal:
                     {
                         comparison = Expression.Equal(member, constant);
                         break;
                     }
+
                 case FilterOperator.GreaterThan:
                     {
                         comparison = Expression.GreaterThan(member, constant);
                         break;
                     }
+
                 case FilterOperator.GreaterThanOrEqual:
                     {
                         comparison = Expression.GreaterThanOrEqual(member, constant);
                         break;
                     }
+
                 case FilterOperator.LessThan:
                     {
                         comparison = Expression.LessThan(member, constant);
                         break;
                     }
+
                 case FilterOperator.LessThanOrEqual:
                     {
                         comparison = Expression.LessThanOrEqual(member, constant);
                         break;
                     }
+
                 case FilterOperator.IsNull:
                     {
                         NullableGetUnderlyingTypeOrInvalidOperationException(propertyType, "NotNull operator can only be used on nullable or reference properties.");
                         comparison = Expression.Equal(originalMember, Expression.Constant(null, propertyType));
                         break;
                     }
+
                 case FilterOperator.IsNotNull:
                     {
                         NullableGetUnderlyingTypeOrInvalidOperationException(propertyType, "IsNotNull operator can only be used on nullable or reference properties.");
                         comparison = Expression.NotEqual(originalMember, Expression.Constant(null, propertyType));
                         break;
                     }
+
                 default:
                     {
                         throw new NotSupportedException(string.Format("Operator {0} is not supported.", op));
                     }
             }
+
             return comparison;
         }
 
@@ -353,15 +367,19 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             {
                 throw new ArgumentNullException(nameof(selector));
             }
+
             Expression body = selector.Body;
+
             if (body is UnaryExpression unary && unary.Operand is MemberExpression memberUnary)
             {
                 return memberUnary.Member.Name;
             }
+
             if (body is MemberExpression member)
             {
                 return member.Member.Name;
             }
+
             throw new ArgumentException("Expression must be a simple member access", nameof(selector));
         }
         #endregion
