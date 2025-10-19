@@ -4,7 +4,6 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.ComponentModel.DataAnnotations;
-
 namespace Canducci.QueryableExpressions.Filters.Extensions
 {
     public static class QueryableDynamicFilterExtensions
@@ -138,6 +137,106 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
         {
             return query.DynamicFilter(propertyName, null, FilterOperator.IsNotNull);
         }
+                
+        public static IQueryable<T> DynamicFilterContains<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.Contains);
+        }
+
+        public static IQueryable<T> DynamicFilterStartsWith<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.StartsWith);
+        }
+
+        public static IQueryable<T> DynamicFilterEndsWith<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.EndsWith);
+        }
+
+        public static IQueryable<T> DynamicFilterEquals<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.Equals);
+        }
+
+        public static IQueryable<T> DynamicFilterGreaterThan<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.GreaterThan);
+        }
+
+        public static IQueryable<T> DynamicFilterGreaterThanOrEqual<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.GreaterThanOrEqual);
+        }
+
+        public static IQueryable<T> DynamicFilterLessThan<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.LessThan);
+        }
+
+        public static IQueryable<T> DynamicFilterLessThanOrEqual<T>(this IQueryable<T> query, string propertyName, object value)
+        {
+            return query.DynamicFilter(propertyName, value, FilterOperator.LessThanOrEqual);
+        }
+
+        public static IQueryable<T> DynamicFilterIsNull<T>(this IQueryable<T> query, string propertyName)
+        {
+            return query.DynamicFilter(propertyName, null, FilterOperator.IsNull);
+        }
+
+        public static IQueryable<T> DynamicFilterIsNotNull<T>(this IQueryable<T> query, string propertyName)
+        {
+            return query.DynamicFilter(propertyName, null, FilterOperator.IsNotNull);
+        }
+
+        public static IQueryable<T> DynamicFilterContains<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.Contains);
+        }
+
+        public static IQueryable<T> DynamicFilterStartsWith<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.StartsWith);
+        }
+
+        public static IQueryable<T> DynamicFilterEndsWith<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.EndsWith);
+        }
+
+        public static IQueryable<T> DynamicFilterEquals<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.Equals);
+        }
+
+        public static IQueryable<T> DynamicFilterGreaterThan<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.GreaterThan);
+        }
+
+        public static IQueryable<T> DynamicFilterGreaterThanOrEqual<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.GreaterThanOrEqual);
+        }
+
+        public static IQueryable<T> DynamicFilterLessThan<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.LessThan);
+        }
+
+        public static IQueryable<T> DynamicFilterLessThanOrEqual<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector, object value)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), value, FilterOperator.LessThanOrEqual);
+        }
+
+        public static IQueryable<T> DynamicFilterIsNull<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), null, FilterOperator.IsNull);
+        }
+
+        public static IQueryable<T> DynamicFilterIsNotNull<T>(this IQueryable<T> query, Expression<Func<T, object>> propertySelector)
+        {
+            return query.DynamicFilter(GetPropertyName(propertySelector), null, FilterOperator.IsNotNull);
+        }
 
         private static bool IsNotAssignableFrom(Type type)
         {
@@ -240,6 +339,21 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
                     throw new NotSupportedException($"Operator {op} is not supported.");
             }
             return comparison;
+        }
+
+        private static string GetPropertyName<T>(Expression<Func<T, object>> selector)
+        {
+            if (selector == null) throw new ArgumentNullException(nameof(selector));
+            Expression body = selector.Body;
+            if (body is UnaryExpression unary && unary.Operand is MemberExpression memberUnary)
+            {
+                return memberUnary.Member.Name;
+            }
+            if (body is MemberExpression member)
+            {
+                return member.Member.Name;
+            }
+            throw new ArgumentException("Expression must be a simple member access", nameof(selector));
         }
     }
 }
