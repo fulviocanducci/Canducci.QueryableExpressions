@@ -32,6 +32,7 @@ var res = db.Users
     .DynamicFilters(items)
     //.DynamicFilter("Code", code)
     //.DynamicFilterNotNull("Code")
+    .DynamicFilterEqual("Code", 1)
     .ToQueryString();
     //.ToList();
 Console.WriteLine(res);
