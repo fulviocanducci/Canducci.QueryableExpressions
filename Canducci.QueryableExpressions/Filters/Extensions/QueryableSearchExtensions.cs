@@ -73,6 +73,46 @@ namespace Canducci.QueryableExpressions.Filters.Extensions
             return query.Where(Expression.Lambda<Func<T, bool>>(combined, parameter));
         }
 
+        public static IQueryable<T> ApplySearchContains<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchOperator.Contains, properties);
+        }
+
+        public static IQueryable<T> ApplySearchStartsWith<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchOperator.StartsWith, properties);
+        }
+
+        public static IQueryable<T> ApplySearchEndsWith<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchOperator.EndsWith, properties);
+        }
+
+        public static IQueryable<T> ApplySearchExactly<T>(this IQueryable<T> query, string search, params Expression<Func<T, string>>[] properties)
+        {
+            return ApplySearch(query, search, SearchOperator.Exactly, properties);
+        }
+
+        public static IQueryable<T> ApplySearchContains<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchOperator.Contains, propertyNames);
+        }
+
+        public static IQueryable<T> ApplySearchStartsWith<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchOperator.StartsWith, propertyNames);
+        }
+
+        public static IQueryable<T> ApplySearchEndsWith<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchOperator.EndsWith, propertyNames);
+        }
+
+        public static IQueryable<T> ApplySearchExactly<T>(this IQueryable<T> query, string search, params string[] propertyNames)
+        {
+            return ApplySearch(query, search, SearchOperator.Exactly, propertyNames);
+        }
+
         private static Expression GetExpressionComparison(SearchOperator mode, Expression member, Expression searchConstant)
         {
             Expression comparison = null;
