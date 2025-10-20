@@ -4,10 +4,11 @@ using Canducci.QueryableExpressions.Orders.Extensions;
 using Canducci.QueryableExpressions.Orders.Models;
 using CslAppTest.Models;
 using Microsoft.EntityFrameworkCore;
+using Canducci.QueryableExpressions.Selects.Extensions;
 
 DbContextOptionsBuilder<dbContext> optionsBuilder = new();
 optionsBuilder.UseMySql("Server=127.0.0.1;Database=db;Uid=root;Pwd=senha;", ServerVersion.AutoDetect("Server=127.0.0.1;Database=db;Uid=root;Pwd=senha;"));
-optionsBuilder.LogTo(Console.WriteLine, Microsoft.Extensions.Logging.LogLevel.Debug).EnableSensitiveDataLogging();
+optionsBuilder.LogTo(Console.WriteLine).EnableSensitiveDataLogging();
 dbContext db = new(optionsBuilder.Options);
 
 //var res = db.Users.ApplySearch("M", SearchBy.Contains, x => x.Name, x => x.Gender).Where(c => c.Id > 10).ToList();
@@ -17,7 +18,20 @@ dbContext db = new(optionsBuilder.Options);
 //    Console.WriteLine($"{item.Id} - {item.Name} - {item.Gender}");
 //}
 
-var items = new DynamicFilterBuilder()
+//class SelectFields
+//{
+//    public int Id { get; set; }
+//    public string Name { get; set; } = string.Empty;
+//    public string Gender { get; set; } = string.Empty;
+//}
+
+var m = "M";
+var t = db.Users.Where(c => c.Name.Contains(m) || c.Gender.Contains(m)).ToList();
+Console.WriteLine(t);
+return;
+
+
+    var items = new DynamicFilterBuilder()
         .AddEqual("Code", 1)
         .AddContains("Name", "M")        
         .Build();
@@ -40,6 +54,7 @@ var res = db.Users
     //.DynamicFilter("Code", code)
     //.DynamicFilterNotNull("Code")
     //.DynamicFilterEqual("Code", 1)
+    .DynamicSelectBy<User, UserView>("Id ","Name ","Gender ")
     .ToList();
 //.ToList();
 Console.WriteLine(res);
